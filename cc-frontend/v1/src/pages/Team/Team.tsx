@@ -49,6 +49,14 @@ export function Team() {
     );
   }
 
+  const uniqueCompetitions = Array.from(
+    new Map(
+      (team.current_competitions || [])
+        .filter((comp) => comp.name && !comp.name.includes("(p)"))
+        .map((comp) => [comp.name, comp]),
+    ).values(),
+  );
+
   return (
     <div className="app-container flex justify-center">
       <div className="w-full max-w-[800px]">
@@ -66,12 +74,9 @@ export function Team() {
                 {team.school_name}
               </h4>
               <div className="mt-2 flex flex-wrap gap-2">
-                {team.current_competitions &&
-                  team.current_competitions
-                    .filter((comp) => comp.name && !comp.name.includes("(p)"))
-                    .map((comp) => (
-                      <CompetitionLabel key={comp.id} competition={comp.name} />
-                    ))}
+                {uniqueCompetitions.map((comp) => (
+                  <CompetitionLabel key={comp.name} competition={comp.name} />
+                ))}
               </div>
             </div>
           </span>
