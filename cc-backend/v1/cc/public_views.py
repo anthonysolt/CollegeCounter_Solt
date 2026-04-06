@@ -31,6 +31,134 @@ def safe_uuid(value):
 
 
 @api_view(["GET"])
+def public_search(request):
+    """
+    Public API endpoint to search across teams, players, and events.
+
+    Query Parameters:
+    - q: Search query (required)
+    - limit: Max results per section (default: 6, max: 20)
+    """
+    query_text = request.query_params.get("q", "").strip()
+
+    raw_limit = request.query_params.get("limit", "6")
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        limit = 6
+
+    limit = max(1, min(limit, 20))
+
+    if not query_text:
+        return Response(
+            {
+                "query": "",
+                "limit": limit,
+                "total_results": 0,
+                "teams": [],
+                "players": [],
+                "events": [],
+                "matches": [],
+            }
+        )
+
+    teams = (
+        Team.objects.filter(
+            Q(name__icontains=query_text) | Q(school_name__icontains=query_text)
+        )
+        .exclude(name__icontains="bye")
+        .order_by("name")[:limit]
+    )
+
+    players = (
+        Player.objects.filter(
+            Q(name__icontains=query_text) | Q(team__name__icontains=query_text),
+            visible=True,
+        )
+        .exclude(elo=1000)
+        .select_related("team")
+        .order_by("name")[:limit]
+    )
+
+    events = (
+        Event.objects.filter(
+            Q(name__icontains=query_text)
+            | Q(description__icontains=query_text)
+            | Q(custom_details__division__icontains=query_text)
+            | Q(custom_details__format__icontains=query_text)
+        )
+        .select_related("winner", "season")
+        .order_by("-start_date")
+        .distinct()[:limit]
+    )
+
+    serialized_teams = [
+        {
+            "id": team.id,
+            "name": team.name,
+            "school_name": team.school_name,
+            "picture": team.picture,
+            "elo": team.elo,
+        }
+        for team in teams
+    ]
+
+    serialized_players = [
+        {
+            "id": player.id,
+            "name": player.name,
+            "picture": player.picture,
+            "elo": player.elo,
+            "team": {
+                "id": player.team.id,
+                "name": player.team.name,
+            }
+            if player.team
+            else None,
+        }
+        for player in players
+    ]
+
+    serialized_events = [
+        {
+            "id": event.id,
+            "name": event.name,
+            "start_date": event.start_date,
+            "end_date": event.end_date,
+            "picture": event.picture,
+            "season": {
+                "id": event.season.id,
+                "name": event.season.name,
+            }
+            if event.season
+            else None,
+            "winner": {
+                "id": event.winner.id,
+                "name": event.winner.name,
+            }
+            if event.winner
+            else None,
+        }
+        for event in events
+    ]
+
+    total_results = (
+        len(serialized_teams) + len(serialized_players) + len(serialized_events)
+    )
+
+    return Response(
+        {
+            "query": query_text,
+            "limit": limit,
+            "total_results": total_results,
+            "teams": serialized_teams,
+            "players": serialized_players,
+            "events": serialized_events,
+        }
+    )
+
+
+@api_view(["GET"])
 def public_teams(request):
     """
     Public API endpoint to fetch teams with various filters.

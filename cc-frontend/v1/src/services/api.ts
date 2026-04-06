@@ -145,6 +145,55 @@ export interface ParticipantMatchRequest {
   team_id: string;
 }
 
+export interface PublicSearchQueryParams {
+  q: string;
+  limit?: number;
+}
+
+export interface PublicSearchTeam {
+  id: string;
+  name: string;
+  school_name?: string;
+  picture?: string;
+  elo: number;
+}
+
+export interface PublicSearchPlayer {
+  id: string;
+  name: string;
+  picture?: string;
+  elo: number;
+  team?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export interface PublicSearchEvent {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  picture?: string;
+  season?: {
+    id: string;
+    name: string;
+  } | null;
+  winner?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export interface PublicSearchResponse {
+  query: string;
+  limit: number;
+  total_results: number;
+  teams: PublicSearchTeam[];
+  players: PublicSearchPlayer[];
+  events: PublicSearchEvent[];
+}
+
 /*
 
 ADMIN API FUNCTIONS
@@ -157,6 +206,15 @@ export const fetchSeasons = async (): Promise<Season[]> => {
   return response.data;
 };
 
+export const fetchPublicSearch = async (
+  params: PublicSearchQueryParams,
+): Promise<PublicSearchResponse> => {
+  const queryString = convertToQueryString(params);
+  const response = await api.get(
+    `/public/search${queryString ? `?${queryString}` : ""}`,
+  );
+  return response.data;
+};
 export const createSeason = async (
   name: string,
   start_date: string,

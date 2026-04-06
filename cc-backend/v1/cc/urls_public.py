@@ -3,6 +3,8 @@ from django.urls import path
 from . import public_views
 
 urlpatterns = [
+    # Search endpoint
+    path("search", public_views.public_search, name="public_search"),
     # Team endpoints
     path("teams", public_views.public_teams, name="public_teams"),
     # Player endpoints

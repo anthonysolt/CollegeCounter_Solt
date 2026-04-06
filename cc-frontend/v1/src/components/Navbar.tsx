@@ -1,6 +1,14 @@
 import { Input } from "./ui/input";
-import { NavLink, useLocation } from "react-router";
+import { Button } from "./ui/button";
+import {
+  NavLink,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router";
+import { useEffect, useState } from "react";
 import logo from "../assets/0.1x/C Logo@0.1x.png";
+import { Search } from "lucide-react";
 
 function Navbar() {
   const location = useLocation();
@@ -98,9 +106,47 @@ function Navbar() {
 export default Navbar;
 
 function SearchInput() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (location.pathname === "/search") {
+      setQuery(searchParams.get("q") || "");
+      return;
+    }
+
+    setQuery("");
+  }, [location.pathname, searchParams]);
+
+  const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      return;
+    }
+
+    navigate(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+  };
+
   return (
-    <div>
-      <Input placeholder="Search (coming soon)" autoComplete="off" disabled />
-    </div>
+    <form onSubmit={onSubmit} className="flex items-center gap-2">
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Search teams, players, events, matches..."
+        autoComplete="off"
+      />
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        className="cursor-pointer"
+      >
+        <Search className="h-4 w-4" />
+      </Button>
+    </form>
   );
 }
