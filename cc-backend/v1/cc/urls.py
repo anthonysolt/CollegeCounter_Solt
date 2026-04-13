@@ -22,6 +22,11 @@ urlpatterns = [
     ),
     path("matches/<uuid:match_id>/", views.get_match, name="get_match"),
     path("matches/<uuid:match_id>/update/", views.update_match, name="update_match"),
+    path(
+        "matches/<uuid:match_id>/apply-elo/",
+        views.apply_match_elo,
+        name="apply_match_elo",
+    ),
     path("matches/<uuid:match_id>/delete/", views.delete_match, name="delete_match"),
     path("matches/update/", views.update_matches, name="update_matches"),
     path("clear-database/", views.clear_database, name="clear_database"),

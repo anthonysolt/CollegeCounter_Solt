@@ -1085,6 +1085,24 @@ export interface DeleteMatchResponse {
   };
 }
 
+export interface ApplyMatchEloResponse {
+  message: string;
+  match_id: string;
+  team1: {
+    id: string;
+    name: string;
+    old_elo: number;
+    new_elo: number;
+  };
+  team2: {
+    id: string;
+    name: string;
+    old_elo: number;
+    new_elo: number;
+  };
+  winner_id: string;
+}
+
 // Match management API functions
 export const createMatch = async (
   data: CreateMatchRequest,
@@ -1158,6 +1176,13 @@ export const deleteMatch = async (
   const response = await api.delete(`/matches/${matchId}/delete/`, {
     data: data || {},
   });
+  return response.data;
+};
+
+export const applyMatchElo = async (
+  matchId: string,
+): Promise<ApplyMatchEloResponse> => {
+  const response = await api.post(`/matches/${matchId}/apply-elo/`);
   return response.data;
 };
 

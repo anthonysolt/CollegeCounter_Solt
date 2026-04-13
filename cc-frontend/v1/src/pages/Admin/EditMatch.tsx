@@ -11,6 +11,7 @@ import {
   updateMatch,
   updateEventMatch,
   deleteMatch,
+  applyMatchElo,
 } from "@/services/api";
 import type {
   Match,
@@ -884,13 +885,18 @@ function MatchEditForm({
     url: match.url || "",
     score_team1: match.score_team1,
     score_team2: match.score_team2,
-    platform: match.platform as "faceit" | "playfly" | "regentsleague" | "other",
+    platform: match.platform as
+      | "faceit"
+      | "playfly"
+      | "regentsleague"
+      | "other",
     season_id: "", // Will be set from match data
     competition_id: "", // Will be set from match data
     winner_id: match.winner?.id || "",
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [applyingElo, setApplyingElo] = useState(false);
 
   // Update form data when match changes
   useEffect(() => {
@@ -906,7 +912,11 @@ function MatchEditForm({
       url: match.url || "",
       score_team1: match.score_team1,
       score_team2: match.score_team2,
-      platform: match.platform as "faceit" | "playfly" | "regentsleague" | "other",
+      platform: match.platform as
+        | "faceit"
+        | "playfly"
+        | "regentsleague"
+        | "other",
       season_id: match.season?.id || "",
       competition_id: match.competition?.id || "",
       winner_id: match.winner?.id || "",
@@ -984,6 +994,26 @@ function MatchEditForm({
       });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleApplyElo = async () => {
+    setApplyingElo(true);
+    try {
+      const result = await applyMatchElo(match.id);
+      onMatchUpdated();
+      setNotification({
+        type: "success",
+        message: `${result.message}: ${result.team1.name} ${result.team1.old_elo}→${result.team1.new_elo}, ${result.team2.name} ${result.team2.old_elo}→${result.team2.new_elo}`,
+      });
+    } catch (error) {
+      console.error("Error applying match Elo:", error);
+      setNotification({
+        type: "error",
+        message: "Failed to apply match Elo",
+      });
+    } finally {
+      setApplyingElo(false);
     }
   };
 
@@ -1175,6 +1205,23 @@ function MatchEditForm({
           </Button>
 
           <Button
+            type="button"
+            variant="secondary"
+            disabled={applyingElo}
+            onClick={handleApplyElo}
+          >
+            {applyingElo ? (
+              <>
+                <Spinner className="mr-2 h-4 w-4" />
+                Applying Elo...
+              </>
+            ) : (
+              "Apply Elo"
+            )}
+          </Button>
+
+          <Button
+            type="button"
             variant="destructive"
             disabled={deleting}
             onClick={() => {
@@ -2115,7 +2162,11 @@ function EventMatchEditForm({
     url: match.url || "",
     score_team1: match.score_team1,
     score_team2: match.score_team2,
-    platform: match.platform as "faceit" | "playfly" | "regentsleague" | "other",
+    platform: match.platform as
+      | "faceit"
+      | "playfly"
+      | "regentsleague"
+      | "other",
     season_id: match.season?.id || "",
     competition_id: match.competition?.id || "",
     winner_id: match.winner?.id || "",
@@ -2151,7 +2202,11 @@ function EventMatchEditForm({
         url: match.url || "",
         score_team1: match.score_team1,
         score_team2: match.score_team2,
-        platform: match.platform as "faceit" | "playfly" | "regentsleague" | "other",
+        platform: match.platform as
+          | "faceit"
+          | "playfly"
+          | "regentsleague"
+          | "other",
         season_id: match.season?.id || "",
         competition_id: match.competition?.id || "",
         winner_id: match.winner?.id || "",

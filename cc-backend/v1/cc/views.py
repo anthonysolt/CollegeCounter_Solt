@@ -307,11 +307,7 @@ def import_matches(request):
                 import_type=import_type,
             )
         elif platform == "regentsleague":
-            result = import_regentsleague_match_data(
-                api_data, 
-                competition, 
-                season
-            )
+            result = import_regentsleague_match_data(api_data, competition, season)
         else:
             return Response(
                 {"error": "Unsupported platform"}, status=status.HTTP_400_BAD_REQUEST
@@ -351,9 +347,7 @@ def import_matches(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def import_regentsleague_match_data(
-    matches: list[dict], competition, season
-):
+def import_regentsleague_match_data(matches: list[dict], competition, season):
     """
     Process Regents League API data and import matches
 
@@ -370,7 +364,9 @@ def import_regentsleague_match_data(
 
     for match_data in matches:
         regentsleague_match_id = match_data.get("id")
-        match_id = uuid.uuid5(uuid.NAMESPACE_DNS, f"regentsleague-{regentsleague_match_id}") # Create a UUID based on the Regents League match ID. In the miniscule offchance this conflicts with an existing ID from a different league out of pure unluckiness I'll do a backflip.
+        match_id = uuid.uuid5(
+            uuid.NAMESPACE_DNS, f"regentsleague-{regentsleague_match_id}"
+        )  # Create a UUID based on the Regents League match ID. In the miniscule offchance this conflicts with an existing ID from a different league out of pure unluckiness I'll do a backflip.
         team1_data: dict = match_data.get("team1")
         team2_data: dict = match_data.get("team2")
         team1_key = team1_data.get("id")
@@ -439,6 +435,7 @@ def import_regentsleague_match_data(
         "updated": updated_matches,
         "skipped": skipped_matches,
     }
+
 
 def import_match_data(
     api_data, competition, season, platform, event=None, import_type="league"
@@ -699,6 +696,7 @@ def import_match_data(
         "skipped": skipped_matches,
     }
 
+
 def get_or_create_team(team_data, competition, season, platform):
     """
     Helper function to get or create a team from API data
@@ -756,7 +754,7 @@ def get_or_create_team(team_data, competition, season, platform):
             )
         except Participant.DoesNotExist:
             pass
-    
+
     # Try Regents League ID if team Faceit and Playfly failed
     if not existing_participant and team_regentsleague_id:
         try:
@@ -2086,6 +2084,59 @@ def update_match(request, match_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(["POST"])
+@firebase_auth_required(min_role="admin")
+def apply_match_elo(request, match_id):
+    """
+    Apply Elo calculation for one match using the two teams' current Elo values.
+    This does not recalculate historical matches.
+    """
+    try:
+        match = get_object_or_404(Match, id=match_id)
+
+        if match.status != "completed" or not match.winner:
+            return Response(
+                {"error": "Match must be completed and have a winner to apply Elo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_team1_elo = match.team1.elo
+        old_team2_elo = match.team2.elo
+
+        updated = update_match_elos(match)
+        if not updated:
+            return Response(
+                {"error": "Unable to apply Elo for this match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "Match Elo applied successfully",
+                "match_id": str(match.id),
+                "team1": {
+                    "id": str(match.team1.id),
+                    "name": match.team1.name,
+                    "old_elo": old_team1_elo,
+                    "new_elo": match.team1.elo,
+                },
+                "team2": {
+                    "id": str(match.team2.id),
+                    "name": match.team2.name,
+                    "old_elo": old_team2_elo,
+                    "new_elo": match.team2.elo,
+                },
+                "winner_id": str(match.winner.id),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error applying Elo for match {match_id}: {str(e)}")
+        return Response(
+            {"error": f"Failed to apply match Elo: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 @api_view(["DELETE"])
 @firebase_auth_required(min_role="admin")
 def delete_match(request, match_id):
@@ -2697,7 +2748,7 @@ def update_regentsleague_match(match: Match):
                 f"Regent League API returned {response.status_code} for match {regentsleague_match_id}"
             )
             return False
-        
+
         match_data: dict = response.json()
         # Check if any updates are needed
         updated = False
@@ -2749,7 +2800,7 @@ def update_regentsleague_match(match: Match):
                     logger.warning(
                         f"Could not find participant for team1 {match.team1.name} in match {match.id}"
                     )
-            
+
             try:
                 team2_participant = Participant.objects.get(
                     team=match.team2,
@@ -2814,11 +2865,11 @@ def update_regentsleague_match(match: Match):
                 update_match_elos(match)
 
         return updated
-    
+
     except Exception as e:
         logger.error(f"Error updating Regents League match {match.id}: {str(e)}")
         raise
-        
+
 
 def update_faceit_match(match):
     """
