@@ -303,6 +303,7 @@ function EditEvent() {
                                   event_id: baseEvent.id,
                                   is_public: true,
                                   is_featured: false,
+                                  is_trophycase: false, 
                                   registration_open: false,
                                 };
                                 const result =
@@ -405,6 +406,7 @@ function EventEditForm({
     format: customEvent.format || "",
     game_mode: customEvent.game_mode || "",
     is_featured: customEvent.is_featured,
+    is_trophycase: customEvent.is_trophycase, 
     is_public: customEvent.is_public,
     registration_open: customEvent.registration_open,
     registration_deadline: dateToLocalInput(customEvent.registration_deadline),
@@ -438,6 +440,7 @@ function EventEditForm({
       format: customEvent.format || "",
       game_mode: customEvent.game_mode || "",
       is_featured: customEvent.is_featured,
+      is_trophycase: customEvent.is_trophycase, 
       is_public: customEvent.is_public,
       registration_open: customEvent.registration_open,
       registration_deadline: dateToLocalInput(
@@ -522,6 +525,7 @@ function EventEditForm({
         format: formData.format || undefined,
         game_mode: formData.game_mode || undefined,
         is_featured: formData.is_featured,
+        is_trophycase: formData.is_trophycase, 
         is_public: formData.is_public,
         registration_open: formData.registration_open,
         registration_deadline: formData.registration_deadline
@@ -840,6 +844,17 @@ function EventEditForm({
 
           <div className="flex items-center space-x-2">
             <Switch
+              id="is_trophycase"
+              checked={formData.is_trophycase}
+              onCheckedChange={(checked) =>
+                handleSwitchChange(checked, "is_trophycase")
+              }
+            />
+            <Label htmlFor="is_trophycase"> Trophy Case Event</Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
               id="is_public"
               checked={formData.is_public}
               onCheckedChange={(checked) =>
@@ -977,6 +992,7 @@ function EventCreateForm({
     format: "",
     game_mode: "",
     is_featured: false,
+    is_trophycase: false, 
     is_public: true,
     registration_open: true,
     registration_deadline: "",
@@ -1102,6 +1118,7 @@ function EventCreateForm({
         format: formData.format || undefined,
         game_mode: formData.game_mode || undefined,
         is_featured: formData.is_featured,
+        is_trophycase: formData.is_trophycase,
         is_public: formData.is_public,
         registration_open: formData.registration_open,
         registration_deadline: formData.registration_deadline
@@ -1139,6 +1156,7 @@ function EventCreateForm({
         format: "",
         game_mode: "",
         is_featured: false,
+        is_trophycase: false, 
         is_public: true,
         registration_open: true,
         registration_deadline: "",

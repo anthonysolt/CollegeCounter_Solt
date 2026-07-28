@@ -1159,6 +1159,7 @@ export interface CustomEvent {
   format?: string;
   game_mode?: string;
   is_featured: boolean;
+  is_trophycase: boolean; 
   is_public: boolean;
   registration_open: boolean;
   registration_deadline?: string;
@@ -1189,6 +1190,7 @@ export interface CustomEventCreateRequest {
   format?: string;
   game_mode?: string;
   is_featured?: boolean;
+  is_trophycase: boolean; 
   is_public?: boolean;
   registration_open?: boolean;
   registration_deadline?: string;
