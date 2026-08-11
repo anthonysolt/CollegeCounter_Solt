@@ -134,7 +134,20 @@ export function Event() {
           <div className="relative col-span-2">
             <div>
               {event.custom_details?.is_featured ? (
-                <img src={c4_logo} alt="C4 Logo" className="mb-2 h-24 w-auto" />
+                <div>
+                  <img
+                    src={c4_logo}
+                    alt="C4 Logo"
+                    className="mb-2 h-24 w-auto"
+                  />
+                  {event.custom_details.division && (
+                    <h1 className="mb-2">
+                      {event.custom_details.division === "honors"
+                        ? "Honors Division"
+                        : "Open Division"}
+                    </h1>
+                  )}
+                </div>
               ) : (
                 <div className="flex items-center gap-4">
                   {event.picture && (

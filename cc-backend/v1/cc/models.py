@@ -62,6 +62,9 @@ class Match(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    regentsleague_id = models.IntegerField(
+        unique=True, blank=True, null=True
+    )
     team1 = models.ForeignKey(
         Team, on_delete=models.CASCADE, related_name="matches_as_team1"
     )
@@ -158,6 +161,9 @@ class Participant(models.Model):
     playfly_participant_id = models.CharField(
         max_length=100, unique=False, blank=True, null=True, db_index=True
     )
+    regentsleague_id = models.IntegerField(
+        blank=True, unique=False, null=True, db_index=True
+    )
     season = models.ForeignKey(
         Season,
         on_delete=models.CASCADE,
@@ -233,6 +239,9 @@ class Event(models.Model):
         related_name="events",
         blank=True,
         null=True,
+    )
+    is_trophycase = models.BooleanField(
+        default=False, help_text="Whether this event shows on a team trophy case"
     )
 
     def __str__(self):
@@ -355,11 +364,24 @@ class CustomEvent(models.Model):
         null=True,
         help_text="Game mode or ruleset (e.g., 5v5, Best of 3)",
     )
+    division = models.CharField(
+        max_length=20,
+        choices=[
+            ("honors", "Honors"),
+            ("open", "Open"),
+        ],
+        blank=True,
+        null=True,
+        help_text="Division type for the event (Honors or Open)",
+    )
     is_featured = models.BooleanField(
         default=False, help_text="Mark this event as featured on the website"
     )
     is_public = models.BooleanField(
         default=True, help_text="Whether this event is visible to public"
+    )
+    is_trophycase = models.BooleanField(
+        default=False, help_text="Whether this event shows on a team trophy case"
     )
     registration_open = models.BooleanField(
         default=False, help_text="Whether registration is currently open"

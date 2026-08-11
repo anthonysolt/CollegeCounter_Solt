@@ -140,3 +140,24 @@ class PublicAPITestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         content = json.loads(response.content)
         self.assertEqual(content["count"], 1)  # Our test season is current
+
+    def test_public_search_endpoint(self):
+        """Test that the public search endpoint returns grouped results"""
+        url = reverse("public_search")
+
+        response = self.client.get(f"{url}?q=Test")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = json.loads(response.content)
+
+        self.assertEqual(content["query"], "Test")
+        self.assertGreaterEqual(content["total_results"], 1)
+        self.assertTrue("teams" in content)
+        self.assertTrue("players" in content)
+        self.assertTrue("events" in content)
+        self.assertTrue("matches" in content)
+
+        # Empty query should return no results without error
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        content = json.loads(response.content)
+        self.assertEqual(content["total_results"], 0)

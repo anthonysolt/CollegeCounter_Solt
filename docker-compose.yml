@@ -37,7 +37,7 @@ services:
       context: ./cc-frontend/v1
       args:
         REACT_APP_API_URL: ${REACT_APP_API_URL}
-        VITE_CURRENT_SEASON_ID: "d7cac7de-2722-4083-8abc-96d2f878a4a3"
+        VITE_CURRENT_SEASON_ID: ${VITE_CURRENT_SEASON_ID}
     environment:
       VIRTUAL_HOST: collegecounter.org,www.collegecounter.org
       LETSENCRYPT_HOST: collegecounter.org,www.collegecounter.org

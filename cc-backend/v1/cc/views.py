@@ -1,3 +1,4 @@
+import uuid
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
@@ -7,6 +8,7 @@ from django.conf import settings
 from rest_framework import status
 from datetime import datetime
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 from django.utils import timezone
 from django.db import models
 from django.shortcuts import get_object_or_404
@@ -41,6 +43,9 @@ def safe_parse_datetime(dt):
         # Try to parse ISO format with Z
         parsed = parse_datetime(dt)
         if parsed:
+            # If no timezone info, assume UTC
+            if parsed.tzinfo is None:
+                parsed = timezone.make_aware(parsed, dt_timezone.utc)
             return parsed
         # If parse_datetime fails, try to parse as unix timestamp string
         try:
@@ -198,10 +203,10 @@ def index(request):
 @firebase_auth_required(min_role="owner")
 def import_matches(request):
     """
-    Import matches from an external API (Faceit or Playfly) into the database.
+    Import matches from an external API (Faceit or Playfly or Regents League) into the database.
     Expected request format:
     {
-        "platform": "faceit" | "leaguespot",
+        "platform": "faceit" | "leaguespot" | "regentsleague",
         "competition_name": "string",
         "season_id": "uuid",
         "data": {...}, // API response data
@@ -220,8 +225,8 @@ def import_matches(request):
         event_id = data.get("event_id")
         import_type = data.get("import_type", "league")
 
-        # Get or create the competition
-        competition, created = Competition.objects.get_or_create(name=competition_name)
+        # Create a new competition (do not merge with existing ones with the same name)
+        competition = Competition.objects.create(name=competition_name)
 
         # Get the season
         try:
@@ -301,6 +306,8 @@ def import_matches(request):
                 event=event,
                 import_type=import_type,
             )
+        elif platform == "regentsleague":
+            result = import_regentsleague_match_data(api_data, competition, season)
         else:
             return Response(
                 {"error": "Unsupported platform"}, status=status.HTTP_400_BAD_REQUEST
@@ -338,6 +345,96 @@ def import_matches(request):
 
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def import_regentsleague_match_data(matches: list[dict], competition, season):
+    """
+    Process Regents League API data and import matches
+
+    Args:
+        matches: The API response data containing match information
+        season: Season object
+
+    Returns:
+        dict: Contains lists of imported_matches, updated_matches, and skipped_matches
+    """
+    imported_matches = []
+    updated_matches = []
+    skipped_matches = []
+
+    for match_data in matches:
+        regentsleague_match_id = match_data.get("id")
+        match_id = uuid.uuid5(
+            uuid.NAMESPACE_DNS, f"regentsleague-{regentsleague_match_id}"
+        )  # Create a UUID based on the Regents League match ID. In the miniscule offchance this conflicts with an existing ID from a different league out of pure unluckiness I'll do a backflip.
+        team1_data: dict = match_data.get("team1")
+        team2_data: dict = match_data.get("team2")
+        team1_key = team1_data.get("id")
+        team2_key = team2_data.get("id")
+        team1, _ = get_or_create_team(team1_data, competition, season, "regentsleague")
+        team2, _ = get_or_create_team(team2_data, competition, season, "regentsleague")
+
+        if not team1 or not team2:
+            continue  # Skip if teams could not be created
+
+        # Extract results if available
+        score_team1 = 0
+        score_team2 = 0
+        winner = None
+
+        status_mapping = {
+            "Completed": "completed",
+            "In Progress": "in_progress",
+            "Scheduled": "scheduled",
+            # Add other status mappings as needed
+        }
+        status = status_mapping.get(match_data.get("status"))
+
+        if status == "completed":
+            score_team1 = match_data.get("score_team1")
+            score_team2 = match_data.get("score_team2")
+
+            winner_key = match_data.get("winner").get("id")
+            if winner_key == team1_key:
+                winner = team1
+            elif winner_key == team2_key:
+                winner = team2
+
+        # Check if match already exists
+        existing_match = Match.objects.filter(id=match_id).first()
+
+        if existing_match:
+            # Skip updating existing matches - only import new matches
+            # Updates should be done separately through the update_matches endpoint
+            skipped_matches.append(str(existing_match.id))
+            logger.info(
+                f"Skipped existing match {match_id} - use update endpoint to modify"
+            )
+            continue  # Move to next match
+
+        # Create the match (only if it doesn't exist)
+        match_date = match_data.get("date")
+        match = Match.objects.create(
+            id=match_id,
+            regentsleague_id=regentsleague_match_id,
+            team1=team1,
+            team2=team2,
+            date=safe_parse_datetime(match_date) if match_date else None,
+            status=status,
+            winner=winner,
+            score_team1=score_team1,
+            score_team2=score_team2,
+            platform="regentsleague",
+            season=season,
+            competition=competition,
+        )
+        imported_matches.append(str(match.id))
+
+    return {
+        "imported": imported_matches,
+        "updated": updated_matches,
+        "skipped": skipped_matches,
+    }
 
 
 def import_match_data(
@@ -607,6 +704,10 @@ def get_or_create_team(team_data, competition, season, platform):
     team_name = team_data.get("name", "Unknown Team")
     team_avatar = team_data.get("avatar")
     team_faceit_id = team_data.get("faction_id")
+    team_regentsleague_id = None
+    if platform == "regentsleague":
+        team_avatar = team_data.get("picture")
+        team_regentsleague_id = team_data.get("id")
 
     # Only process LeagueSpot/Playfly IDs if we're actually importing from those platforms
     team_playfly_id = None
@@ -654,6 +755,17 @@ def get_or_create_team(team_data, competition, season, platform):
         except Participant.DoesNotExist:
             pass
 
+    # Try Regents League ID if team Faceit and Playfly failed
+    if not existing_participant and team_regentsleague_id:
+        try:
+            existing_participant = Participant.objects.get(
+                regentsleague_id=team_regentsleague_id,
+                competition=competition,
+                season=season,
+            )
+        except Participant.DoesNotExist:
+            pass
+
     # If we found a participant with a team, use that team
     if existing_participant and existing_participant.team:
         team = existing_participant.team
@@ -676,6 +788,8 @@ def get_or_create_team(team_data, competition, season, platform):
         participant_defaults["playfly_id"] = team_playfly_id
     if participant_id:
         participant_defaults["playfly_participant_id"] = participant_id
+    if team_regentsleague_id:
+        participant_defaults["regentsleague_id"] = team_regentsleague_id
 
     participant, created = Participant.objects.get_or_create(
         team=team, competition=competition, season=season, defaults=participant_defaults
@@ -692,6 +806,9 @@ def get_or_create_team(team_data, competition, season, platform):
             updated = True
         if participant_id and not participant.playfly_participant_id:
             participant.playfly_participant_id = participant_id
+            updated = True
+        if team_regentsleague_id and not participant.regentsleague_id:
+            participant.regentsleague_id = team_regentsleague_id
             updated = True
 
         if updated:
@@ -711,7 +828,7 @@ def process_player(player_data, team, season):
     Handles player transfers between teams and avoids unique constraint violations.
     """
     player_id = player_data.get("player_id")
-    game_player_id = player_data.get("game_player_id")
+    game_player_id = player_data.get("game_player_id") or player_data.get("steam_id")
     nickname = player_data.get("nickname", "Unknown Player")
     avatar = player_data.get("avatar")
 
@@ -792,10 +909,8 @@ def process_player(player_data, team, season):
         # Update existing player with new information and move to new team
         old_team_name = player.team.name if player.team else "No team"
 
-        # Update player information
-        player.name = nickname
-        if avatar:
-            player.picture = avatar
+        # Update player information (but preserve manually set name and picture)
+        # Don't update name or picture as they may have been set manually
         if player_id and not player.faceit_id:
             player.faceit_id = player_id
         if game_player_id and not player.steam_id:
@@ -832,10 +947,8 @@ def process_player(player_data, team, season):
             try:
                 player = Player.objects.get(faceit_id=player_id)
                 print(f"Found existing player on retry by faceit_id: {player.name}")
-                # Update and move to new team
-                player.name = nickname
-                if avatar:
-                    player.picture = avatar
+                # Update and move to new team (but preserve manually set name and picture)
+                # Don't update name or picture as they may have been set manually
                 if game_player_id and not player.steam_id:
                     player.steam_id = game_player_id
                 player.elo = elo
@@ -1971,6 +2084,59 @@ def update_match(request, match_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@api_view(["POST"])
+@firebase_auth_required(min_role="admin")
+def apply_match_elo(request, match_id):
+    """
+    Apply Elo calculation for one match using the two teams' current Elo values.
+    This does not recalculate historical matches.
+    """
+    try:
+        match = get_object_or_404(Match, id=match_id)
+
+        if match.status != "completed" or not match.winner:
+            return Response(
+                {"error": "Match must be completed and have a winner to apply Elo"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_team1_elo = match.team1.elo
+        old_team2_elo = match.team2.elo
+
+        updated = update_match_elos(match)
+        if not updated:
+            return Response(
+                {"error": "Unable to apply Elo for this match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "Match Elo applied successfully",
+                "match_id": str(match.id),
+                "team1": {
+                    "id": str(match.team1.id),
+                    "name": match.team1.name,
+                    "old_elo": old_team1_elo,
+                    "new_elo": match.team1.elo,
+                },
+                "team2": {
+                    "id": str(match.team2.id),
+                    "name": match.team2.name,
+                    "old_elo": old_team2_elo,
+                    "new_elo": match.team2.elo,
+                },
+                "winner_id": str(match.winner.id),
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error applying Elo for match {match_id}: {str(e)}")
+        return Response(
+            {"error": f"Failed to apply match Elo: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 @api_view(["DELETE"])
 @firebase_auth_required(min_role="admin")
 def delete_match(request, match_id):
@@ -2523,6 +2689,8 @@ def update_matches(request):
                     updated = update_faceit_match(match)
                 elif match.platform == "leaguespot":
                     updated = update_leaguespot_match(match)
+                elif match.platform == "regentsleague":
+                    updated = update_regentsleague_match(match)
                 else:
                     logger.warning(
                         f"Unsupported platform for match {match.id}: {match.platform}"
@@ -2561,6 +2729,146 @@ def update_matches(request):
 
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def update_regentsleague_match(match: Match):
+    """
+    Update a single Regents League match with fresh data from the API
+    Returns True if the match was updated, False if no changes
+    """
+    try:
+        regentsleague_match_id = match.regentsleague_id
+        response = requests.get(
+            f"https://regent-league-api.poopdealer.lol/cc/match?id={regentsleague_match_id}",
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+            logger.warning(
+                f"Regent League API returned {response.status_code} for match {regentsleague_match_id}"
+            )
+            return False
+
+        match_data: dict = response.json()
+        # Check if any updates are needed
+        updated = False
+
+        # Update status
+        status_mapping = {
+            "Completed": "completed",
+            "In Progress": "in_progress",
+            "Scheduled": "scheduled",
+        }
+        new_status = status_mapping.get(match_data.get("status"), "scheduled")
+        if new_status != match.status:
+            match.status = new_status
+            updated = True
+
+        parsed_date = safe_parse_datetime(match_data.get("date"))
+        if parsed_date and parsed_date != match.date:
+            match.date = parsed_date
+            updated = True
+
+        # Update results if match is finished
+        if new_status == "completed":
+            # Get team data to map factions to our teams using Faceit IDs
+            team1_data: dict = match_data.get("team1")
+            team2_data: dict = match_data.get("team2")
+
+            team1_id = team1_data.get("id")
+            team2_id = team2_data.get("id")
+
+            flipped = False
+            try:
+                team1_participant = Participant.objects.get(
+                    team=match.team1,
+                    competition=match.competition,
+                    season=match.season,
+                    regentsleague_id=team1_id,
+                )
+            except Participant.DoesNotExist:
+                # Sometimes team1 and team2 gets flipped after scored are entered.
+                try:
+                    team1_participant = Participant.objects.get(
+                        team=match.team1,
+                        competition=match.competition,
+                        season=match.season,
+                        regentsleague_id=team2_id,
+                    )
+                    flipped = True
+                except Participant.DoesNotExist:
+                    logger.warning(
+                        f"Could not find participant for team1 {match.team1.name} in match {match.id}"
+                    )
+
+            try:
+                team2_participant = Participant.objects.get(
+                    team=match.team2,
+                    competition=match.competition,
+                    season=match.season,
+                    regentsleague_id=team2_id,
+                )
+            except Participant.DoesNotExist:
+                # Sometimes team1 and team2 gets flipped after scored are entered.
+                try:
+                    team2_participant = Participant.objects.get(
+                        team=match.team2,
+                        competition=match.competition,
+                        season=match.season,
+                        regentsleague_id=team1_id,
+                    )
+                    flipped = True
+                except Participant.DoesNotExist:
+                    logger.warning(
+                        f"Could not find participant for team1 {match.team1.name} in match {match.id}"
+                    )
+
+            if team1_participant and team2_participant:
+                if flipped:
+                    team1 = match.team1
+                    team2 = match.team2
+
+                    match.team2 = team1
+                    match.team1 = team2
+                logger.info(
+                    f"Match {match.id}: {match.team1.name} -> {team1_participant}, {match.team2.name} -> {team2_participant}"
+                )
+
+                # Get scores
+                new_score_team1 = match_data.get("score_team1")
+                new_score_team2 = match_data.get("score_team2")
+
+                # Update scores if they changed
+                if new_score_team1 != match.score_team1:
+                    match.score_team1 = new_score_team1
+                    updated = True
+                if new_score_team2 != match.score_team2:
+                    match.score_team2 = new_score_team2
+                    updated = True
+
+                # Determine winner
+                winner_team: dict = match_data.get("winner")
+                new_winner = None
+                if winner_team.get("id") == team1_participant.regentsleague_id:
+                    new_winner = team1_participant.team
+                elif winner_team.get("id") == team2_participant.regentsleague_id:
+                    new_winner = team2_participant.team
+                if new_winner != match.winner:
+                    match.winner = new_winner
+                    updated = True
+        if updated:
+            match.save()
+            logger.info(f"Updated Regent League match {match.id}")
+
+            # Update team ELOs if the match is now completed
+            if match.status == "completed":
+                update_match_elos(match)
+
+        return updated
+
+    except Exception as e:
+        logger.error(f"Error updating Regents League match {match.id}: {str(e)}")
+        raise
 
 
 def update_faceit_match(match):

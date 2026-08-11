@@ -91,10 +91,10 @@ function RankingItem(props: RankingItemProps) {
       <div className="flex items-center space-x-2">
         <span className="mr-3 w-4 text-end font-mono">{rank}</span>
         <Logo
-          src={props.player.picture}
+          src={props.player.team?.picture || undefined}
           className="h-6 w-6 rounded-sm"
-          alt="pfp"
-          type="player"
+          alt="team logo"
+          type="team"
         />
         <div className="max-w-[128px] truncate overflow-ellipsis whitespace-nowrap">
           {props.player.name}

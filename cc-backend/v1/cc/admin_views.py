@@ -250,7 +250,9 @@ def custom_events(request):
                     else None,
                     "format": custom_event.format,
                     "game_mode": custom_event.game_mode,
+                    "division": custom_event.division,
                     "is_featured": custom_event.is_featured,
+                    "is_trophycase": custom_event.is_trophycase,
                     "is_public": custom_event.is_public,
                     "registration_open": custom_event.registration_open,
                     "registration_deadline": custom_event.registration_deadline,
@@ -328,7 +330,9 @@ def custom_events(request):
                 "prize_currency": request.data.get("prize_currency", "USD"),
                 "format": request.data.get("format", ""),
                 "game_mode": request.data.get("game_mode", ""),
+                "division": request.data.get("division", None),
                 "is_featured": request.data.get("is_featured", False),
+                "is_trophycase": request.data.get("is_trophycase", False),
                 "is_public": request.data.get("is_public", True),
                 "registration_open": request.data.get("registration_open", False),
                 "twitter_hashtag": request.data.get("twitter_hashtag", ""),
@@ -356,6 +360,8 @@ def custom_events(request):
                 ]
 
             custom_event = CustomEvent.objects.create(**custom_event_data)
+            event.is_trophycase = custom_event.is_trophycase
+            event.save(update_fields=["is_trophycase"])
 
             return Response(
                 {
@@ -423,7 +429,9 @@ def custom_event_detail(request, custom_event_id):
                 else None,
                 "format": custom_event.format,
                 "game_mode": custom_event.game_mode,
+                "division": custom_event.division,
                 "is_featured": custom_event.is_featured,
+                "is_trophycase": custom_event.is_trophycase,
                 "is_public": custom_event.is_public,
                 "registration_open": custom_event.registration_open,
                 "registration_deadline": custom_event.registration_deadline,
@@ -502,8 +510,14 @@ def custom_event_detail(request, custom_event_id):
                 custom_event.format = request.data["format"]
             if "game_mode" in request.data:
                 custom_event.game_mode = request.data["game_mode"]
+            if "division" in request.data:
+                custom_event.division = request.data["division"]
             if "is_featured" in request.data:
                 custom_event.is_featured = bool(request.data["is_featured"])
+            if "is_trophycase" in request.data:
+                custom_event.is_trophycase = bool(request.data["is_trophycase"])
+                event.is_trophycase = custom_event.is_trophycase
+                event.save(update_fields=["is_trophycase"])
             if "is_public" in request.data:
                 custom_event.is_public = bool(request.data["is_public"])
             if "registration_open" in request.data:

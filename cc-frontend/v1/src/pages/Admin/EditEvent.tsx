@@ -405,6 +405,7 @@ function EventEditForm({
     entry_fee: parseFloat(customEvent.entry_fee || "0"),
     format: customEvent.format || "",
     game_mode: customEvent.game_mode || "",
+    division: customEvent.division || "",
     is_featured: customEvent.is_featured,
     is_trophycase: customEvent.is_trophycase, 
     is_public: customEvent.is_public,
@@ -439,6 +440,7 @@ function EventEditForm({
       entry_fee: parseFloat(customEvent.entry_fee || "0"),
       format: customEvent.format || "",
       game_mode: customEvent.game_mode || "",
+      division: customEvent.division || "",
       is_featured: customEvent.is_featured,
       is_trophycase: customEvent.is_trophycase, 
       is_public: customEvent.is_public,
@@ -524,6 +526,7 @@ function EventEditForm({
         entry_fee: formData.entry_fee || undefined,
         format: formData.format || undefined,
         game_mode: formData.game_mode || undefined,
+        division: formData.division || undefined,
         is_featured: formData.is_featured,
         is_trophycase: formData.is_trophycase, 
         is_public: formData.is_public,
@@ -805,6 +808,24 @@ function EventEditForm({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="division">Division</Label>
+            <Select
+              value={formData.division || undefined}
+              onValueChange={(value) =>
+                setFormData({ ...formData, division: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select division (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="honors">Honors</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="registration_deadline">Registration Deadline</Label>
             <Input
               id="registration_deadline"
@@ -991,6 +1012,7 @@ function EventCreateForm({
     entry_fee: 0,
     format: "",
     game_mode: "",
+    division: "",
     is_featured: false,
     is_trophycase: false, 
     is_public: true,
@@ -1117,6 +1139,7 @@ function EventCreateForm({
         entry_fee: formData.entry_fee || undefined,
         format: formData.format || undefined,
         game_mode: formData.game_mode || undefined,
+        division: formData.division || undefined,
         is_featured: formData.is_featured,
         is_trophycase: formData.is_trophycase,
         is_public: formData.is_public,
@@ -1155,6 +1178,7 @@ function EventCreateForm({
         entry_fee: 0,
         format: "",
         game_mode: "",
+        division: "",
         is_featured: false,
         is_trophycase: false, 
         is_public: true,
@@ -1467,6 +1491,24 @@ function EventCreateForm({
                 placeholder="e.g., 5v5, 1v1"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="division">Division</Label>
+            <Select
+              value={formData.division || undefined}
+              onValueChange={(value) =>
+                setFormData({ ...formData, division: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select division (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="honors">Honors</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

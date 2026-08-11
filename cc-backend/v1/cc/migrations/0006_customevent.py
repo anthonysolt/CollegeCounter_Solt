@@ -31,7 +31,6 @@ class Migration(migrations.Migration):
                 ('game_mode', models.CharField(blank=True, help_text='Game mode or ruleset (e.g., 5v5, Best of 3)', max_length=50, null=True)),
                 ('is_featured', models.BooleanField(default=False, help_text='Mark this event as featured on the website')),
                 ('is_public', models.BooleanField(default=True, help_text='Whether this event is visible to public')),
-                ('is_trophycase', models.BooleanField(default=False, help_text='Whether this event shows on team trophycase')),
                 ('registration_open', models.BooleanField(default=False, help_text='Whether registration is currently open')),
                 ('registration_deadline', models.DateTimeField(blank=True, help_text='Deadline for team registration', null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),

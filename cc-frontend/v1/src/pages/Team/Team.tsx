@@ -1,6 +1,7 @@
 import Logo from "@/components/Logo";
 import {
   usePublicPlayers,
+  usePublicEvents,
   usePublicTeams,
   useTeamRanking,
 } from "@/services/hooks";
@@ -10,6 +11,9 @@ import ResultsWidget from "../Home/ResultsWidget";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/shadcn-io/spinner";
 import { CompetitionLabel } from "@/components/CompetitionLabel";
+import RankBadge from "@/components/RankBadge";
+import { Link } from "react-router";
+import { Trophy } from "lucide-react";
 
 export function Team() {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +52,14 @@ export function Team() {
     );
   }
 
+  const uniqueCompetitions = Array.from(
+    new Map(
+      (team.current_competitions || [])
+        .filter((comp) => comp.name && !comp.name.includes("(p)"))
+        .map((comp) => [comp.name, comp]),
+    ).values(),
+  );
+
   return (
     <div className="app-container flex justify-center">
       <div className="w-full max-w-[800px]">
@@ -61,16 +73,14 @@ export function Team() {
             />
             <div>
               <h2 className="text-4xl">{team.name}</h2>
+              <TrophycaseLogos teamId={id} />
               <h4 className="text-muted-foreground text-lg">
                 {team.school_name}
               </h4>
               <div className="mt-2 flex flex-wrap gap-2">
-                {team.current_competitions &&
-                  team.current_competitions
-                    .filter((comp) => comp.name && !comp.name.includes("(p)"))
-                    .map((comp) => (
-                      <CompetitionLabel key={comp.id} competition={comp.name} />
-                    ))}
+                {uniqueCompetitions.map((comp) => (
+                  <CompetitionLabel key={comp.name} competition={comp.name} />
+                ))}
               </div>
             </div>
           </span>
@@ -96,6 +106,8 @@ export function Team() {
 
         <PlayerComponent team_id={id} />
 
+        {/* <Trophycase teamId={id} /> */}
+
         <div className="mx-4 mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
           <UpcomingMatchesWidget teamId={id} limit={20} />
           <ResultsWidget teamId={id} limit={20} />
@@ -104,6 +116,126 @@ export function Team() {
     </div>
   );
 }
+
+interface TrophycaseProps {
+  teamId?: string;
+}
+
+interface EventTrophyLogoProps {
+  eventName: string;
+  eventPicture?: string;
+  className: string;
+}
+
+function EventTrophyLogo({
+  eventName,
+  eventPicture,
+  className,
+}: EventTrophyLogoProps) {
+  return (
+    <span className="relative block">
+      <Logo
+        src={eventPicture}
+        className={className}
+        alt={eventName}
+        type="team"
+      />
+      <Trophy
+        className="absolute bottom-0 right-0 h-4 w-4 text-yellow-500"
+        aria-hidden="true"
+      />
+    </span>
+  );
+}
+
+function TrophycaseLogos({ teamId }: TrophycaseProps) {
+  const { data } = usePublicEvents(
+    {
+      winner_id: teamId,
+      trophycase: true,
+      page_size: 100,
+      sort: "start_date",
+      order: "desc",
+    },
+    { enabled: !!teamId },
+  );
+
+  if (!teamId) return null;
+
+  const trophies = (data?.results ?? []).filter(
+    (event) =>
+      event.winner?.id === teamId &&
+      (event.is_trophycase || event.custom_details?.is_trophycase),
+  );
+
+  if (trophies.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Trophy case">
+      {trophies.map((event) => (
+        <Link
+          key={event.id}
+          to={`/events/${event.id}`}
+          className="group block rounded p-0.5"
+          title={event.name + " Champions"}
+          aria-label={event.name}
+        >
+          <EventTrophyLogo
+            eventPicture={event.picture}
+            eventName={event.name}
+            className="h-12 w-12 rounded object-contain transition-transform group-hover:scale-110"
+          />
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/* function Trophycase({ teamId }: TrophycaseProps) {
+  const { data } = usePublicEvents(
+    {
+      winner_id: teamId,
+      trophycase: true,
+      page_size: 100,
+      sort: "start_date",
+      order: "desc",
+    },
+    { enabled: !!teamId },
+  );
+
+  if (!teamId) return null;
+
+  const trophies = (data?.results ?? []).filter(
+    (event) =>
+      event.winner?.id === teamId &&
+      (event.is_trophycase || event.custom_details?.is_trophycase),
+  );
+
+  if (trophies.length === 0) return null;
+
+  return (
+    <section className="mx-4 mt-6 rounded-lg border p-3">
+      <h3 className="mb-2 text-lg font-semibold">Trophy Case</h3>
+      <div className="flex flex-wrap gap-2">
+        {trophies.map((event) => (
+          <Link
+            key={event.id}
+            to={`/events/${event.id}`}
+            className="group block rounded-md p-1"
+            title={event.name}
+            aria-label={event.name}
+          >
+            <EventTrophyLogo
+              eventPicture={event.picture}
+              eventName={event.name}
+              className="h-14 w-14 rounded-md object-contain transition-transform group-hover:scale-105"
+            />
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+} */
 
 interface PlayerComponentProps {
   team_id?: string;
@@ -136,14 +268,17 @@ function PlayerComponent(props: PlayerComponentProps) {
               key={player.id}
               className="flex flex-col items-center space-y-2"
             >
-              <Logo
-                src={player.picture}
-                className="h-32 w-32 rounded-md"
-                alt="Player"
-                type="player"
-              />
-              <div className="text-center">
+              <div className="flex w-32 justify-center">
+                <Logo
+                  src={player.picture}
+                  className="h-32 rounded-md"
+                  alt="Player"
+                  type="player"
+                />
+              </div>
+              <div className="space-y-0.5 text-center">
                 <p className="font-semibold">{player.name}</p>
+                <RankBadge elo={player.elo || 0} className="mx-auto h-8 w-8" />
                 <p className="text-muted-foreground text-sm">
                   ELO: {player.elo || "N/A"}
                 </p>

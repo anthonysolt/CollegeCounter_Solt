@@ -1,7 +1,7 @@
 import { Spinner } from "@/components/ui/shadcn-io/spinner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Trophy, ExternalLink } from "lucide-react";
+import { CalendarDays, Trophy, ExternalLink, Users } from "lucide-react";
 import c4_logo from "@/assets/c4 title noborder.svg";
 
 // Simple Badge component
@@ -248,6 +248,12 @@ function Event({ event }: EventProps) {
                         </>
                       )}
                     </div>
+                    {new Date(event.start_date) > new Date() && (
+                      <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
+                        <Users className="h-4 w-4" />
+                        Max Teams: {event.custom_details.max_teams || "N/A"}
+                      </div>
+                    )}
                     <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-2 text-sm">
                       <div className="flex items-center gap-1">
                         <CalendarDays className="h-4 w-4" />
@@ -290,25 +296,36 @@ function Event({ event }: EventProps) {
                   </div>
                 )}
 
-                {event.custom_details.registration_open &&
-                  event.custom_details.registration_deadline && (
-                    <div className="inline-block rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
-                      <p className="text-md font-medium text-blue-900 dark:text-blue-100">
-                        Registration Open
-                      </p>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">
-                        Deadline:{" "}
-                        {new Date(
-                          event.custom_details.registration_deadline,
-                        ).toLocaleDateString()}
-                      </p>
-                      {event.custom_details.max_teams && (
-                        <div className="text-sm text-blue-700 dark:text-blue-300">
-                          <p>Max Teams: {event.custom_details.max_teams}</p>
-                        </div>
-                      )}
+                <div>
+                  {event.custom_details.division && (
+                    <div className="flex justify-center">
+                      <h1 className="w-fit text-2xl">
+                        {event.custom_details.division === "honors"
+                          ? "Honors Division"
+                          : "Open Division"}
+                      </h1>
                     </div>
                   )}
+                  {event.custom_details.registration_open &&
+                    event.custom_details.registration_deadline && (
+                      <div className="inline-block rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
+                        <p className="text-md font-medium text-blue-900 dark:text-blue-100">
+                          Registration Open
+                        </p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Deadline:{" "}
+                          {new Date(
+                            event.custom_details.registration_deadline,
+                          ).toLocaleDateString()}
+                        </p>
+                        {event.custom_details.max_teams && (
+                          <div className="text-sm text-blue-700 dark:text-blue-300">
+                            <p>Max Teams: {event.custom_details.max_teams}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                </div>
               </div>
             )}
           </CardContent>

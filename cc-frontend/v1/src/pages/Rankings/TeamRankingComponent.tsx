@@ -52,12 +52,14 @@ function TeamRankingComponent(props: TeamRankingComponentProps) {
       <div className="mx-12 flex justify-between pt-3">
         {data.results.map((player, i) => (
           <div key={i}>
-            <Logo
-              src={player.picture}
-              className="h-32 w-32"
-              alt="Player"
-              type="player"
-            />
+            <div className="flex w-32 justify-center">
+              <Logo
+                src={player.picture}
+                className="h-32"
+                alt="Player"
+                type="player"
+              />
+            </div>
             <p className="border-t-2 text-center">{player.name}</p>
           </div>
         ))}
