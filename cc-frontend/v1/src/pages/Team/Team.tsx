@@ -191,52 +191,6 @@ function TrophycaseLogos({ teamId }: TrophycaseProps) {
   );
 }
 
-/* function Trophycase({ teamId }: TrophycaseProps) {
-  const { data } = usePublicEvents(
-    {
-      winner_id: teamId,
-      trophycase: true,
-      page_size: 100,
-      sort: "start_date",
-      order: "desc",
-    },
-    { enabled: !!teamId },
-  );
-
-  if (!teamId) return null;
-
-  const trophies = (data?.results ?? []).filter(
-    (event) =>
-      event.winner?.id === teamId &&
-      (event.is_trophycase || event.custom_details?.is_trophycase),
-  );
-
-  if (trophies.length === 0) return null;
-
-  return (
-    <section className="mx-4 mt-6 rounded-lg border p-3">
-      <h3 className="mb-2 text-lg font-semibold">Trophy Case</h3>
-      <div className="flex flex-wrap gap-2">
-        {trophies.map((event) => (
-          <Link
-            key={event.id}
-            to={`/events/${event.id}`}
-            className="group block rounded-md p-1"
-            title={event.name}
-            aria-label={event.name}
-          >
-            <EventTrophyLogo
-              eventPicture={event.picture}
-              eventName={event.name}
-              className="h-14 w-14 rounded-md object-contain transition-transform group-hover:scale-105"
-            />
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-} */
-
 interface PlayerComponentProps {
   team_id?: string;
 }
