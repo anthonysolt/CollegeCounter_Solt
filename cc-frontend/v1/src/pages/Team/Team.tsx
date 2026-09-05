@@ -127,11 +127,8 @@ interface EventTrophyLogoProps {
   className: string;
 }
 
-function EventTrophyLogo({
-  eventName,
-  eventPicture,
-  className,
-}: EventTrophyLogoProps) {
+function EventTrophyLogo({eventName, eventPicture, className,}: 
+  EventTrophyLogoProps) {
   return (
     <span className="relative block">
       <Logo
@@ -149,7 +146,7 @@ function EventTrophyLogo({
 }
 
 function TrophycaseLogos({ teamId }: TrophycaseProps) {
-  const { data } = usePublicEvents(
+  const { data, isLoading, error } = usePublicEvents(
     {
       winner_id: teamId,
       trophycase: true,
@@ -157,15 +154,36 @@ function TrophycaseLogos({ teamId }: TrophycaseProps) {
       sort: "start_date",
       order: "desc",
     },
-    { enabled: !!teamId },
+    {
+      enabled: Boolean(teamId),
+    },
   );
 
   if (!teamId) return null;
 
+  if (isLoading) {
+    return (
+      <div className="mt-2" aria-label="Loading trophy case">
+        <Spinner className="h-4 w-4" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="mt-2">
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          There was an error loading the trophy case. Please try again later.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   const trophies = (data?.results ?? []).filter(
     (event) =>
       event.winner?.id === teamId &&
-      (event.is_trophycase || event.custom_details?.is_trophycase),
+      event.custom_details?.is_trophycase === true
   );
 
   if (trophies.length === 0) return null;
@@ -177,7 +195,7 @@ function TrophycaseLogos({ teamId }: TrophycaseProps) {
           key={event.id}
           to={`/events/${event.id}`}
           className="group block rounded p-0.5"
-          title={event.name + " Champions"}
+          title={`${event.name} Champions`}
           aria-label={event.name}
         >
           <EventTrophyLogo

@@ -1230,7 +1230,6 @@ export interface PublicEvent {
   end_date: string;
   description?: string;
   picture?: string;
-  is_trophycase: boolean;
   winner?: {
     id: string;
     name: string;

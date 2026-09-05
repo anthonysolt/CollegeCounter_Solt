@@ -91,6 +91,19 @@ function Navbar() {
               Events
             </NavLink>
           </li>
+
+           <li>
+            <NavLink
+              to="/about"
+              className={`transition-colors hover:text-blue-200 ${
+                location.pathname === "/about"
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              About Us
+            </NavLink>
+          </li>
         </ul>
         <div className="hidden md:block">
           <SearchInput />

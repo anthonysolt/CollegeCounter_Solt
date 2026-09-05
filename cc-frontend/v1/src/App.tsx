@@ -21,6 +21,7 @@ import { Match } from "./pages/Match/Match";
 import { Events } from "./pages/Events/Events";
 import { Event } from "./pages/Event/Event";
 import { Search } from "./pages/Search/Search";
+import AboutUs from "./pages/AboutUs/AboutUs";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDrfCYvSpHIFdvVkVsaMSMgil-d2W9JZWc",
@@ -78,6 +79,7 @@ function App() {
             <Route path="/news" element={<News />} />
             <Route path="/news/:slug" element={<Article />} />
             <Route path="/rankings" element={<Rankings />} />
+            <Route path="/about" element={<AboutUs />} />
             <Route path="/matches" element={<Matches />} />
             <Route path="/events" element={<Events />} />
             <Route path="/search" element={<Search />} />

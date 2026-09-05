@@ -240,9 +240,6 @@ class Event(models.Model):
         blank=True,
         null=True,
     )
-    is_trophycase = models.BooleanField(
-        default=False, help_text="Whether this event shows on a team trophy case"
-    )
 
     def __str__(self):
         return self.name

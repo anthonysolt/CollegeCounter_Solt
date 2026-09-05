@@ -1233,13 +1233,10 @@ def public_events(request):
             )
 
     if trophycase == "true":
-        queryset = queryset.filter(
-            Q(is_trophycase=True) | Q(custom_details__is_trophycase=True)
-        )
+        queryset = queryset.filter(custom_details__is_trophycase=True)
+
     elif trophycase == "false":
-        queryset = queryset.exclude(
-            Q(is_trophycase=True) | Q(custom_details__is_trophycase=True)
-        )
+        queryset = queryset.exclude(custom_details__is_trophycase=True)
 
     # Filter by public/featured status if custom event exists
     if public_only or featured:
@@ -1284,7 +1281,6 @@ def public_events(request):
             "end_date": event.end_date,
             "description": event.description,
             "picture": event.picture,
-            "is_trophycase": event.is_trophycase,
             "winner": {
                 "id": event.winner.id,
                 "name": event.winner.name,
@@ -1371,7 +1367,6 @@ def public_event_detail(request, event_id):
             "end_date": event.end_date,
             "description": event.description,
             "picture": event.picture,
-            "is_trophycase": event.is_trophycase,
             "winner": {
                 "id": event.winner.id,
                 "name": event.winner.name,

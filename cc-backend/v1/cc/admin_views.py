@@ -360,8 +360,6 @@ def custom_events(request):
                 ]
 
             custom_event = CustomEvent.objects.create(**custom_event_data)
-            event.is_trophycase = custom_event.is_trophycase
-            event.save(update_fields=["is_trophycase"])
 
             return Response(
                 {
@@ -468,7 +466,7 @@ def custom_event_detail(request, custom_event_id):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                 else:
-                    event.winner = None
+                    event.winner = None                
             event.save()
 
             # Update custom event fields
@@ -516,8 +514,6 @@ def custom_event_detail(request, custom_event_id):
                 custom_event.is_featured = bool(request.data["is_featured"])
             if "is_trophycase" in request.data:
                 custom_event.is_trophycase = bool(request.data["is_trophycase"])
-                event.is_trophycase = custom_event.is_trophycase
-                event.save(update_fields=["is_trophycase"])
             if "is_public" in request.data:
                 custom_event.is_public = bool(request.data["is_public"])
             if "registration_open" in request.data:
