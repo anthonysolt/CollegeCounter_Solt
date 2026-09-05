@@ -1549,6 +1549,17 @@ function EventCreateForm({
             <Label htmlFor="is_featured">Featured Event</Label>
           </div>
 
+           <div className="flex items-center space-x-2">
+            <Switch
+              id="is_trophycase"
+              checked={formData.is_trophycase}
+              onCheckedChange={(checked) =>
+                handleSwitchChange(checked, "is_trophycase")
+              }
+            />
+            <Label htmlFor="is_trophycase"> Trophy Case Event</Label>
+          </div>
+
           <div className="flex items-center space-x-2">
             <Switch
               id="is_public"
