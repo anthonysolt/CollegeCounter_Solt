@@ -6,13 +6,52 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/shadcn-io/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PublicMatch } from "@/services/api";
-import { proxyNWES } from "@/services/api";
+import { fetchFaceItStats, proxyNWES } from "@/services/api";
 import { calculateMatchStars } from "@/services/elo";
 import { usePublicMatches, usePublicTeams } from "@/services/hooks";
 import { Star } from "lucide-react";
 import { NavLink, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { FaceItStatsTable } from "@/components/FaceItStatsTable";
+import { useState } from "react";
+
+import ancientImage from "@/assets/cs2_maps/Ancient.jpg";
+import anubisImage from "@/assets/cs2_maps/Anubis.webp";
+import cacheImage from "@/assets/cs2_maps/cache.png";
+import dust2Image from "@/assets/cs2_maps/Dust II.jpg";
+import infernoImage from "@/assets/cs2_maps/Inferno.jpg";
+import mirageImage from "@/assets/cs2_maps/Mirage.jpg";
+import nukeImage from "@/assets/cs2_maps/Nuke.jpeg";
+import overpassImage from "@/assets/cs2_maps/Overpass.webp";
+import trainImage from "@/assets/cs2_maps/Train.png";
+
+const FACEIT_MAP_IMAGES: Record<string, string> = {
+  ancient: ancientImage,
+  anubis: anubisImage,
+  cache: cacheImage,
+  dust2: dust2Image,
+  inferno: infernoImage,
+  mirage: mirageImage,
+  nuke: nukeImage,
+  overpass: overpassImage,
+  train: trainImage,
+};
+
+const FACEIT_MAP_NAMES: Record<string, string> = {
+  de_ancient: "Ancient",
+  de_anubis: "Anubis",
+  de_cache: "Cache",
+  de_dust2: "Dust II",
+  de_inferno: "Inferno",
+  de_mirage: "Mirage",
+  de_nuke: "Nuke",
+  de_overpass: "Overpass",
+  de_train: "Train",
+};
+
+const getFaceItMapImage = (mapName: string): string | undefined =>
+  FACEIT_MAP_IMAGES[mapName.toLowerCase().replace(/^de_/, "")];
 
 export function Match() {
   const { id } = useParams<{ id: string }>();
@@ -133,7 +172,7 @@ export function Match() {
               </div>
             )}
             {match.url && (
-              <div className="w-full text-right">
+              <div className="w-full flex justify-center">
                 <a
                   href={
                     match.url.includes("{lang}")
@@ -262,7 +301,11 @@ function Scoreboard(match: PublicMatch, stars: number, matchDate: Date | null) {
   );
 }
 
-function Stats({ match }: { match: PublicMatch }) {
+function Stats({ match }: { match: PublicMatch; }){
+  if (match.platform=== "faceit") {
+    return <FaceITStats match={match} />;
+  }
+
   const externalMatchIds = match.event_match?.extra_info?.external_match_ids as
     | string[]
     | undefined;
@@ -275,7 +318,7 @@ function Stats({ match }: { match: PublicMatch }) {
     return (
       <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
         <div className="text-lg font-semibold">
-          No Stats Available (Coming Soon!)
+          Stats are Unavailable
         </div>
       </div>
     );
@@ -495,6 +538,164 @@ function Stats({ match }: { match: PublicMatch }) {
           </TabsContent>
         ))}
       </Tabs>
+    </div>
+  );
+}
+
+function FaceITStats({ match }: { match: PublicMatch }) {
+  // State to keep track of the selected map index
+  const [selectedMapIndex, setSelectedMapIndex] = useState(0);
+
+  // Use React Query to fetch FACEIT match stats
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["faceit-match-stats", match.id],
+    queryFn: () => fetchFaceItStats({ matchId: match.id }),
+    enabled: Boolean(match.id) && match.status === "completed",
+    staleTime: 1000 * 60 * 3,
+  });
+
+  // Handle different states of the query (loading, error, no data, etc.)
+  if (match.status !== "completed") {
+    return (
+      <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
+        <div className="text-lg font-semibold">
+          Pending Match Stats (Match Not Completed)
+        </div>
+      </div>
+    );
+  }
+
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <div className="flex min-w-48 flex-col items-center justify-center px-4 py-1">
+        <Spinner />
+        <div className="text-muted-foreground mt-2 text-sm">
+          Loading FACEIT match statistics...
+        </div>
+      </div>
+    );
+  }
+
+  // Handle error state
+  if (error) {
+    return (
+      <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
+        <div className="text-destructive text-base font-semibold">
+          Error loading FACEIT stats
+        </div>
+        <div className="text-muted-foreground text-sm">
+          {error instanceof Error ? error.message : "Unknown error"}
+        </div>
+      </div>
+    );
+  }
+
+  // Handle case where no data is returned
+  if (!data) {
+    return (
+      <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
+        <div className="text-lg font-semibold">No FACEIT Stats Found</div>
+      </div>
+    );
+  }
+
+  // Extract available maps and select the current map based on the selected index
+  const availableMaps = data.rounds.slice(0, 5);
+  const selectedMap = availableMaps[selectedMapIndex] ?? availableMaps[0];
+
+  if (selectedMap == undefined || !selectedMap.teams || selectedMap.teams.length === 0) {
+    return (
+      <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
+        <div className="text-lg font-semibold">No FACEIT Rounds Found</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-6 p-4">
+      <h3 className="text-center text-xl font-bold">Match Statistics</h3>
+
+      <div
+        // Map Selection Tabs
+        className="grid w-full overflow-hidden rounded-md border"
+        style={{
+          gridTemplateColumns: `repeat(${availableMaps.length}, minmax(0, 1fr))`,
+        }}
+        role="tablist"
+        aria-label="Select a map"
+      >
+        {availableMaps.map((round, index) => {
+          const mapImage = getFaceItMapImage(round.stats_map);
+          const mapName = FACEIT_MAP_NAMES[round.stats_map];
+          const isSelected = index === selectedMapIndex;
+          const winningTeam = round.teams.reduce<
+            (typeof round.teams)[number] | undefined
+          >(
+            (winner, team) =>
+              !winner || team.score > winner.score ? team : winner,
+            undefined,
+          );
+          const winningTeamLogo =
+            winningTeam?.team_id === match.team1.faceit_id
+              ? match.team1.picture
+              : winningTeam?.team_id === match.team2.faceit_id
+                ? match.team2.picture
+                : undefined;
+
+          return (
+            <button
+              key={round.round}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              onClick={() => setSelectedMapIndex(index)}
+              className={`relative min-h-28 overflow-hidden border-r last:border-r-0 ${
+                isSelected ? "ring-primary ring-2 ring-inset" : "opacity-50"
+              }`}
+            >
+              {mapImage && (
+                <img
+                  src={mapImage}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+              <span className="absolute inset-0 bg-black/55" />
+              <span className="relative z-10 flex flex-col px-2 py-5 text-white">
+                <span className="text-lg font-bold">
+                  {mapName || round.stats_map}
+                </span>
+                <span className="text-sm font-semibold">{round.score.replace("/", "-")}</span>
+                {winningTeamLogo && winningTeam && (
+                  <Logo
+                    src={winningTeamLogo}
+                    type="team"
+                    alt={`${winningTeam.team_name} logo`}
+                    className="mx-auto mt-2 h-8 w-8 object-contain"
+                  />
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <section className="flex flex-col gap-4 rounded-md border p-4">
+        {selectedMap.teams.map((team) => (
+          <FaceItStatsTable
+            key={team.team_id}
+            teamName={`${team.team_name} — ${team.score}`}
+            teamLogo={
+              team.team_id === match.team1.faceit_id
+                ? match.team1.picture
+                : team.team_id === match.team2.faceit_id
+                  ? match.team2.picture
+                  : undefined
+            }
+            players={team.players}
+          />
+        ))}
+      </section>
     </div>
   );
 }

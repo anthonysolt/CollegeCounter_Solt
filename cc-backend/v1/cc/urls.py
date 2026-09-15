@@ -97,6 +97,11 @@ urlpatterns = [
     ),
     path("proxy/nwes/", views.proxy_nwes, name="proxy_nwes"),
     path(
+        "proxy/faceit/matches/<uuid:match_id>/stats/",
+        views.proxy_faceit_match_stats,
+        name="proxy_faceit_match_stats",
+    ),
+    path(
         "sanity-webhook/",
         webhooks.SanityWebhookView.as_view(),
         name="sanity_webhook",

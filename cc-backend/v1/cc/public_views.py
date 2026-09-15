@@ -715,6 +715,31 @@ def public_matches(request):
     except Exception:
         paginated_matches = paginator.page(paginator.num_pages)
 
+    page_matches = list(paginated_matches.object_list)
+
+    faceit_matches = [
+        match for match in page_matches if match.platform.lower() == "faceit"
+    ]
+    faceit_participant_ids = {}
+    if faceit_matches:
+        team_ids = {
+            team_id
+            for match in faceit_matches
+            for team_id in (match.team1_id, match.team2_id)
+        }
+        participants = (
+            Participant.objects.filter(
+                team_id__in=team_ids,
+                faceit_id__isnull=False,
+            )
+            .exclude(faceit_id="")
+            .values_list("team_id", "competition_id", "season_id", "faceit_id")
+        )
+        faceit_participant_ids = {
+            (team_id, competition_id, season_id): faceit_id
+            for team_id, competition_id, season_id, faceit_id in participants
+        }
+
     # Format response
     result = {
         "count": paginator.count,
@@ -724,7 +749,7 @@ def public_matches(request):
         "results": [],
     }
 
-    for match in paginated_matches:
+    for match in page_matches:
         winner = None
         if match.winner:
             winner = {
@@ -732,25 +757,37 @@ def public_matches(request):
                 "name": match.winner.name,
             }
 
-        # Get event match data if exists
+        # Use the EventMatch records prefetched with the page query.
         event_match_data = None
-        try:
-            event_match = EventMatch.objects.filter(match=match).first()
-            if event_match:
-                event_match_data = {
-                    "id": event_match.id,
-                    "event": {
-                        "id": event_match.event.id,
-                        "name": event_match.event.name,
-                    },
-                    "round": event_match.round,
-                    "num_in_bracket": event_match.num_in_bracket,
-                    "is_bye": event_match.is_bye,
-                    "extra_info": event_match.extra_info,
-                }
-        except Exception:
-            # Handle case where EventMatch query fails
-            pass
+        event_match = next(iter(match.event_matches.all()), None)
+        if event_match:
+            event_match_data = {
+                "id": event_match.id,
+                "event": {
+                    "id": event_match.event.id,
+                    "name": event_match.event.name,
+                },
+                "round": event_match.round,
+                "num_in_bracket": event_match.num_in_bracket,
+                "is_bye": event_match.is_bye,
+                "extra_info": event_match.extra_info,
+            }
+
+        is_faceit_match = match.platform.lower() == "faceit"
+        team1_faceit_id = (
+            faceit_participant_ids.get(
+                (match.team1_id, match.competition_id, match.season_id)
+            )
+            if is_faceit_match
+            else None
+        )
+        team2_faceit_id = (
+            faceit_participant_ids.get(
+                (match.team2_id, match.competition_id, match.season_id)
+            )
+            if is_faceit_match
+            else None
+        )
 
         result["results"].append(
             {
@@ -760,12 +797,14 @@ def public_matches(request):
                     "name": match.team1.name,
                     "picture": match.team1.picture,
                     "elo": match.team1.elo,
+                    "faceit_id": team1_faceit_id,
                 },
                 "team2": {
                     "id": match.team2.id,
                     "name": match.team2.name,
                     "picture": match.team2.picture,
                     "elo": match.team2.elo,
+                    "faceit_id": team2_faceit_id,
                 },
                 "date": match.date,
                 "status": match.status,
@@ -774,15 +813,19 @@ def public_matches(request):
                 "score_team1": match.score_team1,
                 "score_team2": match.score_team2,
                 "platform": match.platform,
-                "season": {"id": match.season.id, "name": match.season.name}
-                if match.season
-                else None,
-                "competition": {
-                    "id": match.competition.id,
-                    "name": match.competition.name,
-                }
-                if match.competition
-                else None,
+                "season": (
+                    {"id": match.season.id, "name": match.season.name}
+                    if match.season
+                    else None
+                ),
+                "competition": (
+                    {
+                        "id": match.competition.id,
+                        "name": match.competition.name,
+                    }
+                    if match.competition
+                    else None
+                ),
                 "event_match": event_match_data,
             }
         )
