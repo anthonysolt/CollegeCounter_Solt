@@ -15,16 +15,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { FaceItStatsTable } from "@/components/FaceItStatsTable";
 import { useState } from "react";
+import { isAxiosError } from "axios";
 
-import ancientImage from "@/assets/cs2_maps/Ancient.jpg";
-import anubisImage from "@/assets/cs2_maps/Anubis.webp";
+import ancientImage from "@/assets/cs2_maps/ancient.jpg";
+import anubisImage from "@/assets/cs2_maps/anubis.webp";
 import cacheImage from "@/assets/cs2_maps/cache.png";
-import dust2Image from "@/assets/cs2_maps/Dust II.jpg";
-import infernoImage from "@/assets/cs2_maps/Inferno.jpg";
-import mirageImage from "@/assets/cs2_maps/Mirage.jpg";
-import nukeImage from "@/assets/cs2_maps/Nuke.jpeg";
-import overpassImage from "@/assets/cs2_maps/Overpass.webp";
-import trainImage from "@/assets/cs2_maps/Train.png";
+import dust2Image from "@/assets/cs2_maps/dust2.jpg";
+import infernoImage from "@/assets/cs2_maps/inferno.jpg";
+import mirageImage from "@/assets/cs2_maps/mirage.jpg";
+import nukeImage from "@/assets/cs2_maps/nuke.jpeg";
+import overpassImage from "@/assets/cs2_maps/overpass.webp";
+import trainImage from "@/assets/cs2_maps/train.png";
 
 const FACEIT_MAP_IMAGES: Record<string, string> = {
   ancient: ancientImage,
@@ -552,6 +553,10 @@ function FaceITStats({ match }: { match: PublicMatch }) {
     queryFn: () => fetchFaceItStats({ matchId: match.id }),
     enabled: Boolean(match.id) && match.status === "completed",
     staleTime: 1000 * 60 * 3,
+    // Only retry on server errors; 4xx (e.g. 404 no stats) won't succeed on retry
+    retry: (failureCount, err) =>
+      failureCount < 2 &&
+      (isAxiosError(err) ? (err.response?.status ?? 500) : 500) >= 500,
   });
 
   // Handle different states of the query (loading, error, no data, etc.)
@@ -579,13 +584,24 @@ function FaceITStats({ match }: { match: PublicMatch }) {
 
   // Handle error state
   if (error) {
+    const status = isAxiosError(error) ? error.response?.status : undefined;
+    if (status === 404) {
+      return (
+        <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
+          <div className="text-lg font-semibold">Stats are not available yet</div>
+        </div>
+      );
+    }
+    const backendMessage = isAxiosError<{ error?: string }>(error)
+      ? error.response?.data?.error
+      : undefined;
     return (
       <div className="text-md flex min-w-48 flex-col items-center justify-center px-4 py-1">
         <div className="text-destructive text-base font-semibold">
           Error loading FACEIT stats
         </div>
         <div className="text-muted-foreground text-sm">
-          {error instanceof Error ? error.message : "Unknown error"}
+          {backendMessage ?? "Something went wrong. Please try again later."}
         </div>
       </div>
     );
